@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+body {
+    font-family: "Cairo", sans-serif;
+    direction: rtl;
+    text-align: right;
+}
+
+.sidebar {
+    min-height: 100vh;
+    border-left: 1px solid #e5e7eb;
+}
+.nav-link.active {
+    background-color: #f8fafc;
+    font-weight: 600;
+}
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
