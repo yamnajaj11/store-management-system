@@ -116,23 +116,23 @@ The project includes relationships between different entities such as:
 
 ### Dashboard
 
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](Screenshots/dashboard.png)
 
 ### Products Management
 
-![Products](screenshots/products.png)
+![Products](Screenshots/products.png)
 
 ### Customers Management
 
-![Customers](screenshots/customers.png)
+![Customers](Screenshots/customers.png)
 
 ### Suppliers Management
 
-![Suppliers](screenshots/suppliers.png)
+![Suppliers](Screenshots/suppliers.png)
 
 ### Purchases Management
 
-![Purchases](screenshots/purchases.png)
+![Purchases](Screenshots/purchases.png)
 
 ---
 
