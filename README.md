@@ -112,23 +112,7 @@ The project includes relationships between different entities such as:
 
 ---
 
-## Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/yamnajaj11/store-management-system.git
-
-cd store-management-system
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate
-php artisan serve
-
-
-
- Screenshots
+## Screenshots
 
 ### Dashboard
 
@@ -149,3 +133,20 @@ php artisan serve
 ### Purchases Management
 
 ![Purchases](screenshots/purchases.png)
+
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/yamnajaj11/store-management-system.git
+
+cd store-management-system
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve
+
+
