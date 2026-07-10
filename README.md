@@ -128,7 +128,7 @@ php artisan serve
 
 
 
-## Screenshots
+ Screenshots
 
 ### Dashboard
 
