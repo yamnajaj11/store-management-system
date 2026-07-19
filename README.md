@@ -134,6 +134,26 @@ The project includes relationships between different entities such as:
 
 ![Purchases](Screenshots/purchases.png)
 
+### inventory Management
+
+![Purchases](Screenshots/inventory.png)
+
+### payments Management
+
+![Purchases](Screenshots/payments.png)
+
+### prices Management
+
+![Purchases](Screenshots/prices.png)
+
+### stock-movements Management
+
+![Purchases](Screenshots/stock-movements.png)
+
+### sales Management
+
+![Purchases](Screenshots/sales.png)
+
 ---
 
 ## Installation

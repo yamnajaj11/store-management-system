@@ -3,98 +3,685 @@
 namespace App\Repositories;
 
 use App\Models\Sale;
-use Illuminate\Support\Facades\DB;
+use App\Models\Product;
+use App\Models\Payment;
 use App\Interfaces\SaleRepositoryInterface;
+use App\Services\StockService;
+use Illuminate\Support\Facades\DB;
+
 
 class SaleRepository implements SaleRepositoryInterface
 {
-    /**
-     * جلب جميع الفواتير بترتيب الأحدث مع العلاقات
-     */
+
+    protected StockService $stockService;
+
+
+
+    public function __construct(
+        StockService $stockService
+    ) {
+
+        $this->stockService = $stockService;
+
+    }
+
+
+
+
+
     public function all()
     {
-        return Sale::with(['customer', 'items.product', 'payments'])
-                    ->latest()
-                    ->get();
+        return Sale::with([
+            'customer',
+            'items.product',
+            'payments'
+        ])
+            ->latest()
+            ->get();
     }
 
-    /**
-     * جلب فاتورة واحدة بالعلاقات
-     */
-    public function find($id)
+
+
+
+
+
+    public function find(int $id)
     {
-        $id = (int) $id; // ✅ تحويل آمن من string إلى int
-        return Sale::with(['customer', 'items.product', 'payments'])
-                    ->findOrFail($id);
+        return Sale::with([
+            'customer',
+            'items.product',
+            'payments'
+        ])
+            ->findOrFail($id);
     }
 
-    /**
-     * إنشاء فاتورة جديدة مع العناصر التابعة لها
-     */
+
+
+
+
+
     public function create(array $data)
     {
+
         return DB::transaction(function () use ($data) {
-            $total = collect($data['items'])->sum(
-                fn($item) => $item['quantity'] * $item['price']
-            );
+
+
+            $total = 0;
+
+
+
+            foreach ($data['items'] as &$item) {
+
+
+                $unitPrice = $item['unit_price'];
+
+
+                $discount = $item['discount'] ?? 0;
+
+
+
+                $finalPrice =
+                    $unitPrice -
+                    (($unitPrice * $discount) / 100);
+
+
+
+                $item['discount'] = $discount;
+
+
+                $item['unit_price'] = $unitPrice;
+
+
+                $item['subtotal'] =
+                    $item['quantity'] * $finalPrice;
+
+
+
+                $total += $item['subtotal'];
+
+            }
+
+
+
+
+
+
+            $invoiceDiscount =
+                $data['discount'] ?? 0;
+
+
+
+
+            $finalAmount =
+                $total -
+                (($total * $invoiceDiscount) / 100);
+
+
+
+
+
+
 
             $sale = Sale::create([
-                'customer_id'  => $data['customer_id'],
-                'sale_date'    => $data['sale_date'],
-                'total_amount' => $total,
-                'status'       => $data['status'],
+
+
+                'invoice_number' =>
+                    $this->generateInvoiceNumber(),
+
+
+
+                'customer_id' =>
+                    $data['customer_id'],
+
+
+
+                'total_amount' =>
+                    $total,
+
+
+
+                'discount' =>
+                    $invoiceDiscount,
+
+
+
+                'final_amount' =>
+                    $finalAmount,
+
+
+
+                'status' =>
+                    $data['status'],
+
+
+
+                'sale_date' =>
+                    $data['sale_date'],
+
+
             ]);
 
-            $sale->items()->createMany($data['items']);
+
+
+
+
+
+
+
+            if ($data['status'] === 'مدفوع') {
+
+
+                Payment::create([
+
+                    'sale_id' => $sale->id,
+
+                    'amount' => $finalAmount,
+
+                    'method' => 'كاش',
+
+                    'payment_date' => now(),
+
+                    'note' => 'دفعة كاملة عند إنشاء الفاتورة',
+
+                ]);
+
+
+            }
+
+
+
+
+
+
+
+
+            if ($data['status'] === 'مدفوع جزئي') {
+
+
+                if (!empty($data['paid_amount'])) {
+
+
+                    if ($data['paid_amount'] > $finalAmount) {
+
+
+                        throw new \Exception(
+                            'المبلغ المدفوع أكبر من قيمة الفاتورة'
+                        );
+
+
+                    }
+
+
+
+                    Payment::create([
+
+
+                        'sale_id' => $sale->id,
+
+                        'amount' => $data['paid_amount'],
+
+                        'method' => 'كاش',
+
+                        'payment_date' => now(),
+
+                        'note' => 'دفعة جزئية عند إنشاء الفاتورة',
+
+                    ]);
+
+
+                }
+
+
+            }
+
+
+
+
+
+
+
+
+            foreach ($data['items'] as $item) {
+
+
+
+                $product =
+                    Product::findOrFail(
+                        $item['product_id']
+                    );
+
+
+
+
+
+                if ($product->stock < $item['quantity']) {
+
+
+                    throw new \Exception(
+
+                        __('sales.stock_not_enough')
+                        .
+                        ': '
+                        .
+                        $product->name
+
+                    );
+
+
+                }
+
+
+
+
+
+                $sale->items()->create([
+
+
+                    'product_id' =>
+                        $item['product_id'],
+
+
+
+                    'quantity' =>
+                        $item['quantity'],
+
+
+
+                    'unit_price' =>
+                        $item['unit_price'],
+
+
+
+                    'discount' =>
+                        $item['discount'],
+
+
+
+                    'subtotal' =>
+                        $item['subtotal'],
+
+
+                ]);
+
+
+
+
+
+
+
+                $this->stockService->decrease(
+
+
+                    $product,
+
+
+                    $item['quantity'],
+
+
+                    'sale',
+
+
+                    $sale,
+
+
+                    'بيع فاتورة رقم ' .
+                    $sale->invoice_number
+
+
+                );
+
+
+
+            }
+
+
+
+
+
 
             return $sale;
+
+
         });
+
+
     }
 
-    /**
-     * تحديث الفاتورة والعناصر التابعة لها
-     */
-    public function update($id, array $data)
-    {
-        $id = (int) $id; // ✅ تحويل آمن
+
+
+
+
+
+
+
+
+    public function update(
+        int $id,
+        array $data
+    ) {
+
+
         return DB::transaction(function () use ($id, $data) {
+
+
+
             $sale = $this->find($id);
 
-            $total = collect($data['items'])->sum(
-                fn($item) => $item['quantity'] * $item['price']
-            );
+
+
+
+
+
+            foreach ($sale->items as $item) {
+
+
+                $product =
+                    Product::findOrFail(
+                        $item->product_id
+                    );
+
+
+
+                $this->stockService->increase(
+
+                    $product,
+
+                    $item->quantity,
+
+                    'sale_return',
+
+                    $sale,
+
+                    'إرجاع كمية بسبب تعديل الفاتورة'
+
+                );
+
+
+            }
+
+
+
+
+
+
+
+            $sale->items()->delete();
+
+
+
+
+
+
+            $total = 0;
+
+
+
+
+
+
+            foreach ($data['items'] as &$item) {
+
+
+
+                $unitPrice =
+                    $item['unit_price'];
+
+
+
+                $discount =
+                    $item['discount'] ?? 0;
+
+
+
+
+                $finalPrice =
+                    $unitPrice -
+                    (($unitPrice * $discount) / 100);
+
+
+
+
+                $item['subtotal'] =
+                    $item['quantity'] * $finalPrice;
+
+
+
+                $item['discount'] =
+                    $discount;
+
+
+
+                $total += $item['subtotal'];
+
+
+            }
+
+
+
+
+
+
+            $invoiceDiscount =
+                $data['discount'] ?? 0;
+
+
+
+            $finalAmount =
+                $total -
+                (($total * $invoiceDiscount) / 100);
+
+
+
+
+
+
 
             $sale->update([
-                'customer_id'  => $data['customer_id'],
-                'sale_date'    => $data['sale_date'],
-                'total_amount' => $total,
-                'status'       => $data['status'],
+
+
+                'customer_id' =>
+                    $data['customer_id'],
+
+
+                'total_amount' =>
+                    $total,
+
+
+                'discount' =>
+                    $invoiceDiscount,
+
+
+                'final_amount' =>
+                    $finalAmount,
+
+
+                'status' =>
+                    $data['status'],
+
+
+                'sale_date' =>
+                    $data['sale_date'],
+
+
             ]);
 
-            // تحديث العناصر
-            $sale->items()->delete();
-            $sale->items()->createMany($data['items']);
+
+
+
+
+
+
+            foreach ($data['items'] as $item) {
+
+
+                $product =
+                    Product::findOrFail(
+                        $item['product_id']
+                    );
+
+
+
+
+                if ($product->stock < $item['quantity']) {
+
+
+                    throw new \Exception(
+                        __('sales.stock_not_enough')
+                        .
+                        ': '
+                        .
+                        $product->name
+                    );
+
+
+                }
+
+
+
+
+
+                $sale->items()->create([
+
+
+                    'product_id' =>
+                        $item['product_id'],
+
+
+                    'quantity' =>
+                        $item['quantity'],
+
+
+                    'unit_price' =>
+                        $item['unit_price'],
+
+
+                    'discount' =>
+                        $item['discount'],
+
+
+                    'subtotal' =>
+                        $item['subtotal'],
+
+
+                ]);
+
+
+
+
+
+
+                $this->stockService->decrease(
+
+                    $product,
+
+                    $item['quantity'],
+
+                    'sale',
+
+                    $sale,
+
+                    'تعديل فاتورة عميل'
+
+                );
+
+
+
+            }
+
+
+
+
+
 
             return $sale;
+
+
         });
+
+
     }
 
-    /**
-     * حذف الفاتورة
-     */
-    public function delete($id)
+
+
+
+
+
+
+
+    public function delete(int $id)
     {
-        $id = (int) $id; // ✅ تحويل آمن
-        $sale = $this->find($id);
-        return $sale->delete();
+
+        return DB::transaction(function () use ($id) {
+
+
+            $sale = $this->find($id);
+
+
+
+
+            foreach ($sale->items as $item) {
+
+
+                $product =
+                    Product::findOrFail(
+                        $item->product_id
+                    );
+
+
+
+                $this->stockService->increase(
+
+                    $product,
+
+                    $item->quantity,
+
+                    'sale_return',
+
+                    $sale,
+
+                    'إلغاء فاتورة عميل'
+
+                );
+
+
+            }
+
+
+
+
+
+            return $sale->delete();
+
+
+        });
+
+
     }
 
-    /**
-     * إنشاء رقم فاتورة تلقائي (للاستخدام المستقبلي)
-     */
+
+
+
+
+
+
+
     public function generateInvoiceNumber(): string
     {
-        $lastId = Sale::max('id') + 1;
-        return 'INV-' . str_pad($lastId, 5, '0', STR_PAD_LEFT);
+
+        $last =
+            Sale::max('id') + 1;
+
+
+
+        return 'INV-' .
+            str_pad(
+                $last,
+                6,
+                '0',
+                STR_PAD_LEFT
+            );
+
     }
+
+
 }

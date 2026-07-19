@@ -12,4 +12,7 @@ return [
     'purchases' => 'المشتريات',
     'settings' => 'الإعدادات',
     'copyright' => 'جميع الحقوق محفوظة',
+    'inventory' => 'المخزون',
+    'prices' => 'إدارة الأسعار',
+    'stock_movements' => 'حركات المخزون',
 ];

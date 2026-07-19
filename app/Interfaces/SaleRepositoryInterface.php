@@ -2,35 +2,51 @@
 
 namespace App\Interfaces;
 
+
 interface SaleRepositoryInterface
 {
+
     /**
-     * إرجاع جميع الفواتير مع العلاقات
+     * جلب جميع فواتير العملاء
      */
     public function all();
 
+
+
     /**
-     * إيجاد فاتورة محددة بواسطة المعرف
+     * جلب فاتورة واحدة
      */
     public function find(int $id);
 
+
+
     /**
-     * إنشاء فاتورة جديدة
+     * إنشاء فاتورة
      */
     public function create(array $data);
 
+
+
     /**
-     * تحديث فاتورة موجودة
+     * تحديث فاتورة
      */
-    public function update(int $id, array $data);
+    public function update(
+        int $id,
+        array $data
+    );
+
+
 
     /**
      * حذف فاتورة
      */
     public function delete(int $id);
 
+
+
     /**
-     * توليد رقم فاتورة تلقائي (اختياري للتحسين المستقبلي)
+     * توليد رقم فاتورة
      */
     public function generateInvoiceNumber(): string;
+
 }

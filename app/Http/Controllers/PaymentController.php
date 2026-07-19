@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Interfaces\PaymentRepositoryInterface;
+use App\Models\Sale;
 use Illuminate\Http\Request;
 use App\Exports\PaymentsExport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -10,84 +11,333 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class PaymentController extends Controller
 {
+
     protected $paymentRepo;
 
-    public function __construct(PaymentRepositoryInterface $paymentRepo)
-    {
+
+    public function __construct(
+        PaymentRepositoryInterface $paymentRepo
+    ) {
         $this->paymentRepo = $paymentRepo;
     }
 
-    // 🧾 عرض جميع الدفعات
+
+
     public function index()
     {
+
         $payments = $this->paymentRepo->getAll();
-        return view('payments.index', compact('payments'));
+
+        return view(
+            'payments.index',
+            compact('payments')
+        );
     }
 
-    // 👁️ عرض دفعة واحدة
+
+
+
+
     public function show($id)
     {
-        $payment = $this->paymentRepo->getById($id);
+
+        $payment =
+            $this->paymentRepo->getById($id);
+
+
         if (!$payment) {
-            return redirect()->back()->withErrors('الدفعة غير موجودة');
+
+            return back()
+                ->withErrors('الدفعة غير موجودة');
         }
-        return view('payments.show', compact('payment'));
+
+
+        return view(
+            'payments.show',
+            compact('payment')
+        );
     }
 
-    // ➕ إنشاء دفعة جديدة
+
+
+
+
     public function create()
     {
-        return view('payments.create');
+
+
+        $sales = Sale::with([
+            'customer',
+            'payments'
+        ])
+            ->where(
+                'final_amount',
+                '>',
+                0
+            )
+            ->latest()
+            ->get()
+            ->filter(function ($sale) {
+
+                return $sale->remaining_amount > 0;
+            });
+
+
+        return view(
+            'payments.create',
+            compact('sales')
+        );
     }
 
-    // 💾 حفظ دفعة جديدة
+
+
+
+
     public function store(Request $request)
     {
+
+
         $data = $request->validate([
-            'sale_id'      => 'required|exists:sales,id',
-            'amount'       => 'required|numeric|min:0',
-            'payment_date' => 'required|date',
+
+
+            'sale_id' => [
+                'required',
+                'exists:sales,id'
+            ],
+
+
+            'amount' => [
+                'required',
+                'numeric',
+                'min:0.01'
+            ],
+
+
+            'payment_date' => [
+                'required',
+                'date'
+            ],
+
+
+            'method' => [
+                'nullable',
+                'string'
+            ],
+
+
+            'note' => [
+                'nullable',
+                'string'
+            ],
+
+
         ]);
 
-        $this->paymentRepo->create($data);
-        return redirect()->route('payments.index')->with('success', 'تم إنشاء الدفعة بنجاح');
-    }
 
-    // ✏️ تعديل دفعة
-    public function edit($id)
-    {
-        $payment = $this->paymentRepo->getById($id);
-        if (!$payment) {
-            return redirect()->back()->withErrors('الدفعة غير موجودة');
+
+
+        $sale = Sale::findOrFail(
+            $data['sale_id']
+        );
+
+
+
+
+        if (
+            $data['amount']
+            >
+            $sale->remaining_amount
+        ) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'المبلغ أكبر من المتبقي'
+                );
         }
 
-        return view('payments.edit', compact('payment'));
+
+
+
+        $this->paymentRepo->create($data);
+
+
+
+        $this->updateSaleStatus($sale);
+
+
+
+
+        return redirect()
+            ->route('payments.index')
+            ->with(
+                'success',
+                'تم إنشاء الدفعة بنجاح'
+            );
     }
 
-    // 🔁 تحديث دفعة
-    public function update(Request $request, $id)
+
+
+
+
+
+    public function edit($id)
     {
+
+        $payment =
+            $this->paymentRepo->getById($id);
+
+
+
+        $sales = Sale::with('customer')
+            ->get();
+
+
+
+        return view(
+            'payments.edit',
+            compact(
+                'payment',
+                'sales'
+            )
+        );
+    }
+
+
+
+
+
+
+
+    public function update(
+        Request $request,
+        $id
+    ) {
+
+
         $data = $request->validate([
-            'sale_id'      => 'required|exists:sales,id',
-            'amount'       => 'required|numeric|min:0',
+
+
+            'amount' => 'required|numeric|min:0.01',
+
             'payment_date' => 'required|date',
+
+            'method' => 'nullable|string',
+
+            'note' => 'nullable|string',
+
+
         ]);
 
-        $this->paymentRepo->update($id, $data);
-        return redirect()->route('payments.index')->with('success', 'تم تعديل الدفعة بنجاح');
+
+
+        $payment =
+            $this->paymentRepo->getById($id);
+
+
+
+        $this->paymentRepo
+            ->update(
+                $id,
+                $data
+            );
+
+
+
+        $this->updateSaleStatus(
+            $payment->sale
+        );
+
+
+
+        return redirect()
+            ->route('payments.index')
+            ->with(
+                'success',
+                'تم تعديل الدفعة بنجاح'
+            );
     }
 
-    // 🗑️ حذف دفعة
+
+
+
+
+
+
+
     public function destroy($id)
     {
+
+        $payment =
+            $this->paymentRepo->getById($id);
+
+
+
+        $sale =
+            $payment->sale;
+
+
+
         $this->paymentRepo->delete($id);
-        return redirect()->route('payments.index')->with('success', 'تم حذف الدفعة بنجاح');
+
+
+
+        $this->updateSaleStatus($sale);
+
+
+
+        return redirect()
+            ->route('payments.index')
+            ->with(
+                'success',
+                'تم حذف الدفعة'
+            );
     }
 
 
-    // 📊 تصدير Excel
+
+
+
+
+
+    private function updateSaleStatus($sale)
+    {
+
+
+        if ($sale->remaining_amount <= 0) {
+
+
+            $sale->update([
+                'status' => 'مدفوع'
+            ]);
+        } elseif ($sale->paid_amount > 0) {
+
+
+            $sale->update([
+                'status' => 'مدفوع جزئي'
+            ]);
+        } else {
+
+
+            $sale->update([
+                'status' => 'غير مدفوع'
+            ]);
+        }
+    }
+
+
+
+
+
+
+
     public function exportExcel()
     {
-        return Excel::download(new PaymentsExport, 'الدفعات.xlsx');
+
+        return Excel::download(
+            new PaymentsExport,
+            'الدفعات.xlsx'
+        );
     }
 }

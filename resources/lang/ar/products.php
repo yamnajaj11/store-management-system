@@ -19,7 +19,7 @@ return [
     'supplier' => 'المورد',
     'description' => 'الوصف',
     'optional' => 'اختياري',
-
+    'number' => 'رقم المنتج',
     // ⚙️ العمليات
     'actions' => 'العمليات',
     'search' => 'بحث',
@@ -47,4 +47,8 @@ return [
     'tip_barcode_optional' => 'يمكن ترك حقل الباركود فارغًا إذا لم يكن متوفرًا.',
     'field_required' => 'هذا الحقل مطلوب.',
     'price_hint' => 'أدخل السعر.',
+    'suppliers' => 'المورد',
+    'bulk_add_product' => 'إضافة مجموعة منتجات',
+    'out_of_stock' => 'نفذ',
+    'choose_supplier' => 'اختر المورد',
 ];
